@@ -210,3 +210,16 @@ if generate:
                     )
                 with st.expander("Log"):
                     st.code("\n".join(log_lines))
+
+
+
+import streamlit as st
+from core import LayoutConfig, build_pdf
+
+st.title("ReportForge 📊")
+
+uploaded_files = st.file_uploader(
+    "Upload screenshots",
+    type=["png", "jpg", "jpeg"],
+    accept_multiple_files=True
+)
