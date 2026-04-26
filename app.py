@@ -18,7 +18,7 @@ import streamlit as st
 
 # Make sure we can import the core module from the same folder
 sys.path.insert(0, str(Path(__file__).parent.resolve()))
-from screenshot_report_core import LayoutConfig, build_pdf
+from core import LayoutConfig, build_pdf
 
 
 # ---------------------------------------------------------------------------
