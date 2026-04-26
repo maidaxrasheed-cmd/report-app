@@ -1,5 +1,5 @@
 import streamlit as st
-from core import LayoutConfig, build_pdf
+from core import LayoutConfig, build_pdf, fetch_paragraphs
 
 # -------------------------------------------------------------------
 # PAGE SETUP
@@ -8,26 +8,16 @@ from core import LayoutConfig, build_pdf
 st.set_page_config(page_title="ReportForge", page_icon="📊", layout="wide")
 
 st.title("📊 ReportForge")
-st.caption("Screenshots → Notes → Beautiful PDF Reports")
+st.caption("Screenshots → Notes → Clean PDF Reports")
 
 # -------------------------------------------------------------------
-# MODE SELECTOR
-# -------------------------------------------------------------------
-
-mode = st.radio(
-    "Choose input method",
-    ["Manual Notes", "Google Sheets"],
-    horizontal=True
-)
-
-# -------------------------------------------------------------------
-# SCREENSHOTS
+# STEP 1 — UPLOAD
 # -------------------------------------------------------------------
 
 st.subheader("1. Upload Screenshots")
 
 uploaded_files = st.file_uploader(
-    "Upload screenshots",
+    "Drop screenshots here",
     type=["png", "jpg", "jpeg", "webp"],
     accept_multiple_files=True
 )
@@ -35,96 +25,78 @@ uploaded_files = st.file_uploader(
 if not uploaded_files:
     st.stop()
 
+st.success(f"{len(uploaded_files)} screenshots loaded")
+
 # -------------------------------------------------------------------
-# NOTES INPUT (MODE SWITCH)
+# STEP 2 — INPUT MODE
 # -------------------------------------------------------------------
+
+st.subheader("2. Add Notes")
+
+mode = st.radio(
+    "Choose input method",
+    ["Manual Notes", "Google Sheets"],
+    horizontal=True
+)
 
 notes = []
 
+# ---------------- MANUAL ----------------
+
 if mode == "Manual Notes":
-
-    st.subheader("2. Add Notes Manually")
-
     for i, file in enumerate(uploaded_files, start=1):
-        st.image(file, width=250)
-        note = st.text_area(f"Note for {file.name}", key=f"note_{i}")
-        notes.append(note)
+        st.image(file, width=200)
+        notes.append(st.text_area(f"Note {i}", key=f"n{i}"))
 
-elif mode == "Google Sheets":
+# ---------------- SHEETS (AUTO LOAD) ----------------
 
-    st.subheader("2. Google Sheets Input")
+else:
+    sheet_url = st.text_input("Google Sheet URL")
 
-    sheet_url = st.text_input("Paste Google Sheet URL")
+    column_index = st.number_input("Column Index", value=0, step=1)
 
-    column_index = st.number_input("Column Index for Notes", value=0, step=1)
+    if sheet_url:
+        try:
+            notes = fetch_paragraphs(sheet_url, int(column_index))
+            st.success(f"Loaded {len(notes)} notes from sheet")
+        except Exception as e:
+            st.error(f"Sheet error: {e}")
 
-    if st.button("Load Notes from Sheet"):
-        from core import fetch_paragraphs
-        notes = fetch_paragraphs(sheet_url, int(column_index))
-        st.success("Notes loaded from sheet!")
+# padding safety
+notes += [""] * max(0, len(uploaded_files) - len(notes))
 
 # -------------------------------------------------------------------
-# LAYOUT SETTINGS
+# STEP 3 — SETTINGS (MINIMAL & CLEAN)
 # -------------------------------------------------------------------
 
-st.subheader("3. Design Settings")
+st.subheader("3. Layout")
 
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
 with col1:
-    font_size = st.slider("Font size", 8, 20, 10)
-    text_color = st.color_picker("Notes color", "#444444")
+    font_size = st.slider("Font size", 8, 18, 10)
+    text_color = st.color_picker("Text color", "#444444")
 
 with col2:
-    gap = st.slider("Gap between image & text", 10, 100, 40)
+    gap = st.slider("Spacing", 10, 100, 40)
     margin = st.slider("Page margin", 10, 120, 40)
 
-with col3:
-    page_width = st.number_input("Page width", value=1196.0)
-    page_height = st.number_input("Page height", value=595.0)
-
-# -------------------------------------------------------------------
-# PAGE NUMBER STYLE OPTION
-# -------------------------------------------------------------------
-
-page_number_side = st.radio(
-    "Page number alignment",
-    ["Follow Notes Side", "Always Left", "Always Right"]
-)
-
-# -------------------------------------------------------------------
-# BUILD CONFIG
-# -------------------------------------------------------------------
-
 config = LayoutConfig(
-    page_width=page_width,
-    page_height=page_height,
     font_size=font_size,
     gap=gap,
     outer_margin=margin,
     text_color=text_color
 )
 
-# attach extra UI setting dynamically
-config.page_number_side = page_number_side
-
 # -------------------------------------------------------------------
-# GENERATE
+# STEP 4 — GENERATE (UNCHANGED BUTTON)
 # -------------------------------------------------------------------
 
-st.subheader("4. Generate PDF")
+st.subheader("4. Export")
 
 if st.button("✨ Generate PDF", use_container_width=True):
 
-    # safety
-    if mode == "Google Sheets" and not notes:
-        st.error("Load notes from Google Sheets first.")
-        st.stop()
-
-    if len(notes) < len(uploaded_files):
-        notes += [""] * (len(uploaded_files) - len(notes))
-
-    with st.spinner("Building PDF..."):
+    with st.spinner("Building your report..."):
 
         try:
             pdf_bytes = build_pdf(
@@ -133,7 +105,7 @@ if st.button("✨ Generate PDF", use_container_width=True):
                 config=config
             )
 
-            st.success("PDF generated successfully!")
+            st.success("Done — your report is ready")
 
             st.download_button(
                 "⬇️ Download PDF",
