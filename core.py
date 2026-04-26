@@ -1,6 +1,5 @@
 """
-Core PDF generation logic — Streamlit Cloud version (FINAL FIXED)
-Works with Streamlit UploadedFile objects (no folders).
+Core PDF generation logic — FINAL Streamlit Cloud version
 """
 
 import csv
@@ -15,6 +14,7 @@ from reportlab.lib.colors import HexColor
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph, Frame
+from reportlab.lib.utils import ImageReader
 
 
 # -------------------------------------------------------------------
@@ -57,7 +57,7 @@ def fetch_paragraphs(sheet_url: str, column_index: int = 0) -> List[str]:
 
 
 # -------------------------------------------------------------------
-# PDF PAGE RENDER
+# IMAGE + TEXT RENDER
 # -------------------------------------------------------------------
 
 def draw_page(c, img_file, text, font_name, config, page_num, total_pages):
@@ -78,7 +78,8 @@ def draw_page(c, img_file, text, font_name, config, page_num, total_pages):
 
     image_y = (config.page_height - image_box_h) / 2
 
-    # ---------------- IMAGE FIX (IMPORTANT) ----------------
+    # ---------------- IMAGE FIX (FINAL STABLE VERSION) ----------------
+
     img_bytes = img_file.read()
     img_stream = io.BytesIO(img_bytes)
 
@@ -87,8 +88,12 @@ def draw_page(c, img_file, text, font_name, config, page_num, total_pages):
     scale = min(image_box_w / img.width, image_box_h / img.height)
     w, h = img.width * scale, img.height * scale
 
+    img_stream.seek(0)  # important safety reset
+
+    img_reader = ImageReader(img_stream)
+
     c.drawImage(
-        img_stream,
+        img_reader,
         image_x,
         image_y,
         width=w,
@@ -98,6 +103,7 @@ def draw_page(c, img_file, text, font_name, config, page_num, total_pages):
     )
 
     # ---------------- TEXT ----------------
+
     style = ParagraphStyle(
         "Body",
         fontName=font_name,
@@ -128,7 +134,7 @@ def build_pdf(uploaded_files, notes, config: LayoutConfig):
 
     total_pages = len(uploaded_files)
 
-    # safety fix
+    # safety alignment
     notes += [""] * (len(uploaded_files) - len(notes))
 
     for i, (file, note) in enumerate(zip(uploaded_files, notes), start=1):
